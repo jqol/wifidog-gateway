@@ -86,7 +86,7 @@ iptables_insert_gateway_id(char **input)
     *input = buffer;
 }
 
-/** @internal 
+/** @internal
  * */
 static int
 iptables_do_command(const char *format, ...)
@@ -309,6 +309,8 @@ iptables_fw_init(void)
     /* Assign links and rules to these new chains */
     iptables_do_command("-t nat -A PREROUTING -i %s -j " CHAIN_OUTGOING, config->gw_interface);
 
+    iptables_do_command("-t nat -D PREROUTING -p tcp --dport 80 -j " CHAIN_TO_PROXY); // delete default proxy rule
+
     iptables_do_command("-t nat -A " CHAIN_OUTGOING " -d %s -j " CHAIN_TO_ROUTER, config->gw_address);
     iptables_do_command("-t nat -A " CHAIN_TO_ROUTER " -j ACCEPT");
 
@@ -324,8 +326,13 @@ iptables_fw_init(void)
                             proxy_port);
     }
 
+    iptables_do_command("-t nat -A " CHAIN_TO_INTERNET
+        " -p tcp --dport 80 -m mark --mark 0x%u -j " CHAIN_TO_PROXY, FW_MARK_KNOWN);
+    iptables_do_command("-t nat -A " CHAIN_TO_INTERNET
+        " -p tcp --dport 80 -m mark --mark 0x%u -j " CHAIN_TO_PROXY, FW_MARK_PROBATION);
+
     iptables_do_command("-t nat -A " CHAIN_TO_INTERNET " -m mark --mark 0x%u -j ACCEPT", FW_MARK_KNOWN);
-    iptables_do_command("-t nat -A " CHAIN_TO_INTERNET " -m mark --mark 0x%u -j ACCEPT", FW_MARK_PROBATION);
+    iptables_do_command("-t nat -A " CHAIN_TO_INTERNET " -m mark --mark 0x%u -j ACCEPT ", FW_MARK_PROBATION);
     iptables_do_command("-t nat -A " CHAIN_TO_INTERNET " -j " CHAIN_UNKNOWN);
 
     iptables_do_command("-t nat -A " CHAIN_UNKNOWN " -j " CHAIN_AUTHSERVERS);
@@ -361,7 +368,7 @@ iptables_fw_init(void)
     iptables_do_command("-t filter -A " CHAIN_TO_INTERNET " -m state --state INVALID -j DROP");
 
     /* XXX: Why this? it means that connections setup after authentication
-       stay open even after the connection is done... 
+       stay open even after the connection is done...
        iptables_do_command("-t filter -A " CHAIN_TO_INTERNET " -m state --state RELATED,ESTABLISHED -j ACCEPT"); */
 
     //Won't this rule NEVER match anyway?!?!? benoitg, 2007-06-23
@@ -460,6 +467,10 @@ iptables_fw_destroy(void)
     iptables_do_command("-t nat -X " CHAIN_TO_INTERNET);
     iptables_do_command("-t nat -X " CHAIN_GLOBAL);
     iptables_do_command("-t nat -X " CHAIN_UNKNOWN);
+
+    // restore default proxy rule
+    iptables_do_command("-t nat -D PREROUTING -p tcp --dport 80 -j " CHAIN_TO_PROXY);
+    iptables_do_command("-t nat -I PREROUTING -p tcp --dport 80 -j " CHAIN_TO_PROXY);
 
     /*
      *

@@ -44,6 +44,7 @@
 #define CHAIN_LOCKED    "WiFiDog_$ID$_Locked"
 #define CHAIN_TRUSTED    "WiFiDog_$ID$_Trusted"
 #define CHAIN_AUTH_IS_DOWN "WiFiDog_$ID$_AuthIsDown"
+#define CHAIN_TO_PROXY "Chain_To_Proxy"
 /*@}*/
 
 /** Used by iptables_fw_access to select if the client should be granted of denied access */
